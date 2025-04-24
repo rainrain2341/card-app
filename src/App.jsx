@@ -68,7 +68,7 @@ function App() {
     });
   };
 
-  // 一部を切り出す処理（dataURL → 指定領域を抽出）
+  // 画像の一部を切り出す
   const cropRegion = (image, x, y, width, height) => {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
@@ -85,6 +85,7 @@ function App() {
     });
   };
 
+  // 撮影 → グレースケール → 部分切り出し
   const captureToCanvas = async () => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -108,13 +109,13 @@ function App() {
       const preprocessed = await preprocessImage(dataUrl);
       setCapturedImage(preprocessed);
 
-    // 上から20px地点から高さ40px（幅は全体）
-cropRegion(image, 0, 20, 240, 40);
+      // カード名：上から20px・高さ40px
+      const nameCrop = await cropRegion(preprocessed, 0, 20, 240, 40);
+      setNameImage(nameCrop);
 
-     // 型番：左下エリア（左半分・高さ20px）
-const idCrop = await cropRegion(preprocessed, 0, 316, 120, 20);
-setIdImage(idCrop);
-
+      // 型番：左下（左半分・高さ20px）
+      const idCrop = await cropRegion(preprocessed, 0, 316, 120, 20);
+      setIdImage(idCrop);
     }
   };
 
@@ -147,7 +148,7 @@ setIdImage(idCrop);
         boxShadow: '0 0 10px rgba(255,0,0,0.5)'
       }}></div>
 
-      {/* ボタン */}
+      {/* 操作ボタン */}
       <div style={{
         position: 'absolute',
         bottom: '20px',
@@ -180,7 +181,7 @@ setIdImage(idCrop);
       {/* 非表示Canvas */}
       <canvas ref={canvasRef} style={{ display: 'none' }} />
 
-      {/* プレビュー画像3種 */}
+      {/* プレビュー表示 */}
       <div style={{
         position: 'absolute',
         top: '10px',
