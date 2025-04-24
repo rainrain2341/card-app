@@ -4,14 +4,16 @@ function App() {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const canvasRef = useRef(null);
+
   const [cameraOn, setCameraOn] = useState(true);
-  const [capturedImage, setCapturedImage] = useState(null); // プレビュー画像用
+  const [capturedImage, setCapturedImage] = useState(null);
+  const [nameImage, setNameImage] = useState(null);
+  const [idImage, setIdImage] = useState(null);
 
   useEffect(() => {
     if (cameraOn) {
       navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
         .then((stream) => {
-          console.log("✅ カメラ取得成功");
           streamRef.current = stream;
           if (videoRef.current) {
             videoRef.current.srcObject = stream;
@@ -37,15 +39,12 @@ function App() {
     };
   }, [cameraOn]);
 
-  const toggleCamera = () => {
-    setCameraOn(prev => !prev);
-  };
+  const toggleCamera = () => setCameraOn(prev => !prev);
 
-  // ⬇️ グレースケール処理関数（補正）
+  // グレースケール処理
   const preprocessImage = (image) => {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
-
     const img = new Image();
     img.src = image;
 
@@ -53,25 +52,39 @@ function App() {
       img.onload = () => {
         canvas.width = img.width;
         canvas.height = img.height;
-
         ctx.drawImage(img, 0, 0);
+
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const data = imageData.data;
 
         for (let i = 0; i < data.length; i += 4) {
           const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
-          data[i] = data[i + 1] = data[i + 2] = avg; // グレースケール化
+          data[i] = data[i + 1] = data[i + 2] = avg;
         }
 
         ctx.putImageData(imageData, 0, 0);
-
-        const preprocessed = canvas.toDataURL();
-        resolve(preprocessed);
+        resolve(canvas.toDataURL());
       };
     });
   };
 
-  // ⬇️ 撮影＋補正処理
+  // 一部を切り出す処理（dataURL → 指定領域を抽出）
+  const cropRegion = (image, x, y, width, height) => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+    img.src = image;
+
+    return new Promise((resolve) => {
+      img.onload = () => {
+        canvas.width = width;
+        canvas.height = height;
+        ctx.drawImage(img, x, y, width, height, 0, 0, width, height);
+        resolve(canvas.toDataURL());
+      };
+    });
+  };
+
   const captureToCanvas = async () => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -92,13 +105,21 @@ function App() {
       ctx.drawImage(video, sx, sy, captureWidth, captureHeight, 0, 0, captureWidth, captureHeight);
       const dataUrl = canvas.toDataURL('image/png');
 
-      const preprocessed = await preprocessImage(dataUrl); // ←補正後画像を保存
+      const preprocessed = await preprocessImage(dataUrl);
       setCapturedImage(preprocessed);
+
+      // カード名部分（上部 50px〜110px の範囲）
+      const nameCrop = await cropRegion(preprocessed, 0, 50, captureWidth, 60);
+      setNameImage(nameCrop);
+
+      // 型番部分（下部 296px〜326px の範囲）
+      const idCrop = await cropRegion(preprocessed, 0, 296, captureWidth, 30);
+      setIdImage(idCrop);
     }
   };
 
   return (
-    <div className="container" style={{
+    <div style={{
       position: 'relative',
       width: '100%',
       height: '100vh',
@@ -109,14 +130,10 @@ function App() {
         ref={videoRef}
         autoPlay
         playsInline
-        style={{
-          width: '100%',
-          height: '100%',
-          objectFit: 'cover'
-        }}
+        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
       />
 
-      {/* ガイド枠 */}
+      {/* 撮影枠 */}
       <div style={{
         position: 'absolute',
         top: '50%',
@@ -144,10 +161,8 @@ function App() {
           padding: '10px 20px',
           fontSize: '16px',
           borderRadius: '8px',
-          border: 'none',
           backgroundColor: cameraOn ? 'red' : 'green',
-          color: 'white',
-          cursor: 'pointer'
+          color: 'white'
         }}>
           {cameraOn ? 'カメラOFF' : 'カメラON'}
         </button>
@@ -155,30 +170,45 @@ function App() {
           padding: '10px 20px',
           fontSize: '16px',
           borderRadius: '8px',
-          border: 'none',
           backgroundColor: 'blue',
-          color: 'white',
-          cursor: 'pointer'
+          color: 'white'
         }}>
           撮影
         </button>
       </div>
 
-      {/* Canvas (非表示) */}
+      {/* 非表示Canvas */}
       <canvas ref={canvasRef} style={{ display: 'none' }} />
 
-      {/* 撮影画像プレビュー */}
-      {capturedImage && (
-        <div style={{
-          position: 'absolute',
-          top: '10px',
-          right: '10px',
-          zIndex: 10,
-          border: '2px solid white'
-        }}>
-          <img src={capturedImage} alt="preview" style={{ width: '120px', height: '168px' }} />
-        </div>
-      )}
+      {/* プレビュー画像3種 */}
+      <div style={{
+        position: 'absolute',
+        top: '10px',
+        right: '10px',
+        zIndex: 10,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '8px'
+      }}>
+        {capturedImage && (
+          <div>
+            <p style={{ color: 'white', margin: 0 }}>📷 全体</p>
+            <img src={capturedImage} alt="Captured" style={{ width: '120px' }} />
+          </div>
+        )}
+        {nameImage && (
+          <div>
+            <p style={{ color: 'white', margin: 0 }}>🏷️ カード名</p>
+            <img src={nameImage} alt="Card Name" style={{ width: '120px' }} />
+          </div>
+        )}
+        {idImage && (
+          <div>
+            <p style={{ color: 'white', margin: 0 }}>🔢 型番</p>
+            <img src={idImage} alt="Card ID" style={{ width: '120px' }} />
+          </div>
+        )}
+      </div>
     </div>
   );
 }
