@@ -108,13 +108,13 @@ function App() {
       const preprocessed = await preprocessImage(dataUrl);
       setCapturedImage(preprocessed);
 
-      // カード名部分（上部 50px〜110px の範囲）
-      const nameCrop = await cropRegion(preprocessed, 0, 50, captureWidth, 60);
-      setNameImage(nameCrop);
+    // 上から20px地点から高さ40px（幅は全体）
+cropRegion(image, 0, 20, 240, 40);
 
-      // 型番部分（下部 296px〜326px の範囲）
-      const idCrop = await cropRegion(preprocessed, 0, 296, captureWidth, 30);
-      setIdImage(idCrop);
+     // 型番：左下エリア（左半分・高さ20px）
+const idCrop = await cropRegion(preprocessed, 0, 316, 120, 20);
+setIdImage(idCrop);
+
     }
   };
 
