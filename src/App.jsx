@@ -49,27 +49,29 @@ function App() {
     const ctx = canvas.getContext('2d');
     const img = new Image();
     img.src = image;
-
+  
     return new Promise((resolve) => {
       img.onload = () => {
         canvas.width = img.width;
         canvas.height = img.height;
         ctx.drawImage(img, 0, 0);
-
+  
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const data = imageData.data;
-
+  
         for (let i = 0; i < data.length; i += 4) {
           const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
-          data[i] = data[i + 1] = data[i + 2] = avg;
+          const binary = avg > 150 ? 255 : 0; // 白黒のしきい値
+          data[i] = data[i + 1] = data[i + 2] = binary;
         }
-
+  
         ctx.putImageData(imageData, 0, 0);
         resolve(canvas.toDataURL());
       };
     });
   };
-
+  
+  
   // 拡大つき切り出し
   const cropRegion = (image, x, y, width, height, scale = 2) => {
     const canvas = document.createElement('canvas');
