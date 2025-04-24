@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import Tesseract from 'tesseract.js';
 
 function App() {
   const videoRef = useRef(null);
@@ -9,6 +10,8 @@ function App() {
   const [capturedImage, setCapturedImage] = useState(null);
   const [nameImage, setNameImage] = useState(null);
   const [idImage, setIdImage] = useState(null);
+  const [ocrNameText, setOcrNameText] = useState('');
+  const [ocrIdText, setOcrIdText] = useState('');
 
   useEffect(() => {
     if (cameraOn) {
@@ -41,7 +44,6 @@ function App() {
 
   const toggleCamera = () => setCameraOn(prev => !prev);
 
-  // グレースケール処理
   const preprocessImage = (image) => {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
@@ -68,7 +70,6 @@ function App() {
     });
   };
 
-  // 画像の一部を切り出す
   const cropRegion = (image, x, y, width, height) => {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
@@ -85,7 +86,6 @@ function App() {
     });
   };
 
-  // 撮影 → グレースケール → 部分切り出し
   const captureToCanvas = async () => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -109,15 +109,35 @@ function App() {
       const preprocessed = await preprocessImage(dataUrl);
       setCapturedImage(preprocessed);
 
-      // カード名：上から20px・高さ40px
+      // カード名エリア（上から20px, 高さ40px）
       const nameCrop = await cropRegion(preprocessed, 0, 20, 240, 40);
       setNameImage(nameCrop);
 
-      // 型番：左下（左半分・高さ20px）
+      // 型番エリア（左下、上から316px, 高さ20px, 幅120px）
       const idCrop = await cropRegion(preprocessed, 0, 316, 120, 20);
       setIdImage(idCrop);
     }
   };
+
+  // OCR for nameImage
+  useEffect(() => {
+    if (!nameImage) return;
+    Tesseract.recognize(nameImage, 'jpn', {
+      logger: m => console.log("📘 name OCR progress:", m),
+    }).then(({ data: { text } }) => {
+      setOcrNameText(text.trim());
+    });
+  }, [nameImage]);
+
+  // OCR for idImage
+  useEffect(() => {
+    if (!idImage) return;
+    Tesseract.recognize(idImage, 'jpn', {
+      logger: m => console.log("🔢 id OCR progress:", m),
+    }).then(({ data: { text } }) => {
+      setOcrIdText(text.trim());
+    });
+  }, [idImage]);
 
   return (
     <div style={{
@@ -134,7 +154,6 @@ function App() {
         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
       />
 
-      {/* 撮影枠 */}
       <div style={{
         position: 'absolute',
         top: '50%',
@@ -148,7 +167,6 @@ function App() {
         boxShadow: '0 0 10px rgba(255,0,0,0.5)'
       }}></div>
 
-      {/* 操作ボタン */}
       <div style={{
         position: 'absolute',
         bottom: '20px',
@@ -178,10 +196,8 @@ function App() {
         </button>
       </div>
 
-      {/* 非表示Canvas */}
       <canvas ref={canvasRef} style={{ display: 'none' }} />
 
-      {/* プレビュー表示 */}
       <div style={{
         position: 'absolute',
         top: '10px',
@@ -201,12 +217,14 @@ function App() {
           <div>
             <p style={{ color: 'white', margin: 0 }}>🏷️ カード名</p>
             <img src={nameImage} alt="Card Name" style={{ width: '120px' }} />
+            <p style={{ color: 'lightgreen', fontSize: '14px' }}>{ocrNameText}</p>
           </div>
         )}
         {idImage && (
           <div>
             <p style={{ color: 'white', margin: 0 }}>🔢 型番</p>
             <img src={idImage} alt="Card ID" style={{ width: '120px' }} />
+            <p style={{ color: 'lightblue', fontSize: '14px' }}>{ocrIdText}</p>
           </div>
         )}
       </div>
