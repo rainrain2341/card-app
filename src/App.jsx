@@ -10,8 +10,8 @@ function App() {
   const [capturedImage, setCapturedImage] = useState(null);
   const [nameImage, setNameImage] = useState(null);
   const [idImage, setIdImage] = useState(null);
-  const [ocrNameText, setOcrNameText] = useState('');
-  const [ocrIdText, setOcrIdText] = useState('');
+  const [cardName, setCardName] = useState('');
+  const [cardId, setCardId] = useState('');
 
   useEffect(() => {
     if (cameraOn) {
@@ -70,7 +70,8 @@ function App() {
     });
   };
 
-  const cropRegion = (image, x, y, width, height) => {
+  // 拡大つき切り出し
+  const cropRegion = (image, x, y, width, height, scale = 2) => {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     const img = new Image();
@@ -78,12 +79,20 @@ function App() {
 
     return new Promise((resolve) => {
       img.onload = () => {
-        canvas.width = width;
-        canvas.height = height;
-        ctx.drawImage(img, x, y, width, height, 0, 0, width, height);
+        canvas.width = width * scale;
+        canvas.height = height * scale;
+
+        ctx.drawImage(img, x, y, width, height, 0, 0, width * scale, height * scale);
         resolve(canvas.toDataURL());
       };
     });
+  };
+
+  const runOCR = async (imageDataURL) => {
+    const result = await Tesseract.recognize(imageDataURL, 'jpn+eng', {
+      tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789- ',
+    });
+    return result.data.text.trim();
   };
 
   const captureToCanvas = async () => {
@@ -109,44 +118,20 @@ function App() {
       const preprocessed = await preprocessImage(dataUrl);
       setCapturedImage(preprocessed);
 
-      // カード名エリア（上から20px, 高さ40px）
-      const nameCrop = await cropRegion(preprocessed, 0, 20, 240, 40);
+      const nameCrop = await cropRegion(preprocessed, 0, 20, 240, 40, 2);
       setNameImage(nameCrop);
+      const nameText = await runOCR(nameCrop);
+      setCardName(nameText);
 
-      // 型番エリア（左下、上から316px, 高さ20px, 幅120px）
-      const idCrop = await cropRegion(preprocessed, 0, 316, 120, 20);
+      const idCrop = await cropRegion(preprocessed, 0, 316, 120, 20, 2);
       setIdImage(idCrop);
+      const idText = await runOCR(idCrop);
+      setCardId(idText);
     }
   };
 
-  // OCR for nameImage
-  useEffect(() => {
-    if (!nameImage) return;
-    Tesseract.recognize(nameImage, 'jpn', {
-      logger: m => console.log("📘 name OCR progress:", m),
-    }).then(({ data: { text } }) => {
-      setOcrNameText(text.trim());
-    });
-  }, [nameImage]);
-
-  // OCR for idImage
-  useEffect(() => {
-    if (!idImage) return;
-    Tesseract.recognize(idImage, 'jpn', {
-      logger: m => console.log("🔢 id OCR progress:", m),
-    }).then(({ data: { text } }) => {
-      setOcrIdText(text.trim());
-    });
-  }, [idImage]);
-
   return (
-    <div style={{
-      position: 'relative',
-      width: '100%',
-      height: '100vh',
-      overflow: 'hidden',
-      backgroundColor: 'black',
-    }}>
+    <div style={{ position: 'relative', width: '100%', height: '100vh', overflow: 'hidden', backgroundColor: 'black' }}>
       <video
         ref={videoRef}
         autoPlay
@@ -154,6 +139,7 @@ function App() {
         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
       />
 
+      {/* 撮影枠 */}
       <div style={{
         position: 'absolute',
         top: '50%',
@@ -167,6 +153,7 @@ function App() {
         boxShadow: '0 0 10px rgba(255,0,0,0.5)'
       }}></div>
 
+      {/* ボタン */}
       <div style={{
         position: 'absolute',
         bottom: '20px',
@@ -196,8 +183,10 @@ function App() {
         </button>
       </div>
 
+      {/* 非表示Canvas */}
       <canvas ref={canvasRef} style={{ display: 'none' }} />
 
+      {/* プレビューとOCR結果 */}
       <div style={{
         position: 'absolute',
         top: '10px',
@@ -215,16 +204,14 @@ function App() {
         )}
         {nameImage && (
           <div>
-            <p style={{ color: 'white', margin: 0 }}>🏷️ カード名</p>
+            <p style={{ color: 'white', margin: 0 }}>🏷️ カード名：{cardName}</p>
             <img src={nameImage} alt="Card Name" style={{ width: '120px' }} />
-            <p style={{ color: 'lightgreen', fontSize: '14px' }}>{ocrNameText}</p>
           </div>
         )}
         {idImage && (
           <div>
-            <p style={{ color: 'white', margin: 0 }}>🔢 型番</p>
+            <p style={{ color: 'white', margin: 0 }}>🔢 型番：{cardId}</p>
             <img src={idImage} alt="Card ID" style={{ width: '120px' }} />
-            <p style={{ color: 'lightblue', fontSize: '14px' }}>{ocrIdText}</p>
           </div>
         )}
       </div>
