@@ -2,12 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 
 function App() {
   const videoRef = useRef(null);
-  const streamRef = useRef(null); // streamの参照用
+  const streamRef = useRef(null);
   const [cameraOn, setCameraOn] = useState(true);
 
   useEffect(() => {
     if (cameraOn) {
-      // 外カメラ優先で取得（スマホ対応）
       navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
         .then((stream) => {
           console.log("✅ カメラ取得成功");
@@ -20,7 +19,6 @@ function App() {
           console.error("❌ カメラ取得失敗:", err);
         });
     } else {
-      // カメラ停止
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
         streamRef.current = null;
@@ -59,16 +57,19 @@ function App() {
           objectFit: 'cover'
         }}
       />
+
+      {/* ポケモンカード型ガイド枠 */}
       <div style={{
         position: 'absolute',
         top: '50%',
         left: '50%',
-        width: '300px',
-        height: '200px',
+        width: '240px',
+        height: '336px',
         transform: 'translate(-50%, -50%)',
         border: '3px dashed red',
-        borderRadius: '10px',
-        pointerEvents: 'none'
+        borderRadius: '16px',
+        pointerEvents: 'none',
+        boxShadow: '0 0 10px rgba(255,0,0,0.5)'
       }}></div>
 
       <button
