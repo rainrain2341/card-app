@@ -118,12 +118,12 @@ function App() {
       const preprocessed = await preprocessImage(dataUrl);
       setCapturedImage(preprocessed);
 
-      const nameCrop = await cropRegion(preprocessed, 0, 20, 240, 40, 2);
+      const nameCrop = await cropRegion(preprocessed, 0, 20, 240, 40, 5);
       setNameImage(nameCrop);
       const nameText = await runOCR(nameCrop);
       setCardName(nameText);
 
-      const idCrop = await cropRegion(preprocessed, 0, 316, 120, 20, 2);
+      const idCrop = await cropRegion(preprocessed, 0, 316, 120, 20, 5);
       setIdImage(idCrop);
       const idText = await runOCR(idCrop);
       setCardId(idText);
