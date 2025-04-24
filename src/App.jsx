@@ -7,8 +7,8 @@ function App() {
 
   useEffect(() => {
     if (cameraOn) {
-      // カメラ起動
-      navigator.mediaDevices.getUserMedia({ video: true })
+      // 外カメラ優先で取得（スマホ対応）
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
         .then((stream) => {
           console.log("✅ カメラ取得成功");
           streamRef.current = stream;
@@ -30,7 +30,6 @@ function App() {
       }
     }
 
-    // コンポーネントがアンマウントされたらカメラを停止
     return () => {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
@@ -50,7 +49,6 @@ function App() {
       overflow: 'hidden',
       backgroundColor: 'black',
     }}>
-      {/* カメラ映像 */}
       <video
         ref={videoRef}
         autoPlay
@@ -61,8 +59,6 @@ function App() {
           objectFit: 'cover'
         }}
       />
-
-      {/* オーバーレイ枠 */}
       <div style={{
         position: 'absolute',
         top: '50%',
@@ -75,7 +71,6 @@ function App() {
         pointerEvents: 'none'
       }}></div>
 
-      {/* カメラオン・オフボタン */}
       <button
         onClick={toggleCamera}
         style={{
