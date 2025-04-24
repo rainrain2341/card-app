@@ -91,8 +91,8 @@ function App() {
       ctx.drawImage(video, sx, sy, captureWidth, captureHeight, 0, 0, captureWidth, captureHeight);
       const fullImage = canvas.toDataURL('image/png');
 
-      const nameCrop = await cropAndScale(fullImage, 0, 40, 720, 50, 5);
-      const idCrop = await cropAndScale(fullImage, 0, 988 - 40, 360, 20, 5);
+      const nameCrop = await cropAndScale(fullImage, 0, 40, 720, 50, 3);
+      const idCrop = await cropAndScale(fullImage, 0, 988 - 40, 360, 20, 3);
 
       setNameImage(nameCrop);
       setIdImage(idCrop);
@@ -167,13 +167,13 @@ function App() {
         {nameImage && (
           <div>
             <p style={{ color: 'white', margin: 0 }}>🏷️ カード名: {nameText}</p>
-            <img src={nameImage} alt="Card Name" style={{ width: `${720 * 5}px` }} />
+            <img src={nameImage} alt="Card Name" style={{ width: `${720 * 2}px` }} />
           </div>
         )}
         {idImage && (
           <div>
             <p style={{ color: 'white', margin: 0 }}>🔢 型番: {idText}</p>
-            <img src={idImage} alt="Card ID" style={{ width: `${360 * 5}px` }} />
+            <img src={idImage} alt="Card ID" style={{ width: `${360 * 2}px` }} />
           </div>
         )}
       </div>
