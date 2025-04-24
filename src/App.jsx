@@ -10,12 +10,18 @@ function App() {
   const [capturedImage, setCapturedImage] = useState(null);
   const [nameImage, setNameImage] = useState(null);
   const [idImage, setIdImage] = useState(null);
-  const [cardName, setCardName] = useState('');
-  const [cardId, setCardId] = useState('');
+  const [nameText, setNameText] = useState('');
+  const [idText, setIdText] = useState('');
 
   useEffect(() => {
     if (cameraOn) {
-      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+      navigator.mediaDevices.getUserMedia({
+        video: {
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+          facingMode: 'environment'
+        }
+      })
         .then((stream) => {
           streamRef.current = stream;
           if (videoRef.current) {
@@ -44,55 +50,26 @@ function App() {
 
   const toggleCamera = () => setCameraOn(prev => !prev);
 
-  const preprocessImage = (image) => {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    const img = new Image();
-    img.src = image;
-
+  const cropAndScale = (image, x, y, width, height, scale = 1) => {
     return new Promise((resolve) => {
+      const img = new Image();
       img.onload = () => {
-        canvas.width = img.width;
-        canvas.height = img.height;
-        ctx.drawImage(img, 0, 0);
-
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const data = imageData.data;
-
-        for (let i = 0; i < data.length; i += 4) {
-          const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
-          data[i] = data[i + 1] = data[i + 2] = avg;
-        }
-
-        ctx.putImageData(imageData, 0, 0);
-        resolve(canvas.toDataURL());
-      };
-    });
-  };
-
-  // 拡大つき切り出し
-  const cropRegion = (image, x, y, width, height, scale = 2) => {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    const img = new Image();
-    img.src = image;
-
-    return new Promise((resolve) => {
-      img.onload = () => {
+        const canvas = document.createElement('canvas');
         canvas.width = width * scale;
         canvas.height = height * scale;
-
+        const ctx = canvas.getContext('2d');
         ctx.drawImage(img, x, y, width, height, 0, 0, width * scale, height * scale);
         resolve(canvas.toDataURL());
       };
+      img.src = image;
     });
   };
 
-  const runOCR = async (imageDataURL) => {
-    const result = await Tesseract.recognize(imageDataURL, 'jpn+eng', {
-      tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789- ',
+  const runOCR = async (image, setter) => {
+    const result = await Tesseract.recognize(image, 'jpn+eng', {
+      tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-：',
     });
-    return result.data.text.trim();
+    setter(result.data.text.trim());
   };
 
   const captureToCanvas = async () => {
@@ -100,33 +77,30 @@ function App() {
     const canvas = canvasRef.current;
 
     if (video && canvas) {
-      const ctx = canvas.getContext('2d');
-      const videoWidth = video.videoWidth;
-      const videoHeight = video.videoHeight;
+      const vw = video.videoWidth;
+      const vh = video.videoHeight;
 
-      const captureWidth = 240;
-      const captureHeight = 336;
-      const sx = (videoWidth - captureWidth) / 2;
-      const sy = (videoHeight - captureHeight) / 2;
+      const captureWidth = 720;
+      const captureHeight = 1008;
+      const sx = (vw - captureWidth) / 2;
+      const sy = (vh - captureHeight) / 2;
 
       canvas.width = captureWidth;
       canvas.height = captureHeight;
 
+      const ctx = canvas.getContext('2d');
       ctx.drawImage(video, sx, sy, captureWidth, captureHeight, 0, 0, captureWidth, captureHeight);
-      const dataUrl = canvas.toDataURL('image/png');
+      const fullImage = canvas.toDataURL('image/png');
+      setCapturedImage(fullImage);
 
-      const preprocessed = await preprocessImage(dataUrl);
-      setCapturedImage(preprocessed);
+      const nameCrop = await cropAndScale(fullImage, 0, 40, 720, 50, 5);
+      const idCrop = await cropAndScale(fullImage, 0, 988 - 40, 360, 20, 5);
 
-      const nameCrop = await cropRegion(preprocessed, 0, 20, 240, 40, 5);
       setNameImage(nameCrop);
-      const nameText = await runOCR(nameCrop);
-      setCardName(nameText);
-
-      const idCrop = await cropRegion(preprocessed, 0, 316, 120, 20, 5);
       setIdImage(idCrop);
-      const idText = await runOCR(idCrop);
-      setCardId(idText);
+
+      runOCR(nameCrop, setNameText);
+      runOCR(idCrop, setIdText);
     }
   };
 
@@ -139,7 +113,6 @@ function App() {
         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
       />
 
-      {/* 撮影枠 */}
       <div style={{
         position: 'absolute',
         top: '50%',
@@ -151,9 +124,8 @@ function App() {
         borderRadius: '16px',
         pointerEvents: 'none',
         boxShadow: '0 0 10px rgba(255,0,0,0.5)'
-      }}></div>
+      }} />
 
-      {/* ボタン */}
       <div style={{
         position: 'absolute',
         bottom: '20px',
@@ -183,10 +155,8 @@ function App() {
         </button>
       </div>
 
-      {/* 非表示Canvas */}
       <canvas ref={canvasRef} style={{ display: 'none' }} />
 
-      {/* プレビューとOCR結果 */}
       <div style={{
         position: 'absolute',
         top: '10px',
@@ -199,19 +169,19 @@ function App() {
         {capturedImage && (
           <div>
             <p style={{ color: 'white', margin: 0 }}>📷 全体</p>
-            <img src={capturedImage} alt="Captured" style={{ width: '120px' }} />
+            <img src={capturedImage} alt="Captured" style={{ width: '160px' }} />
           </div>
         )}
         {nameImage && (
           <div>
-            <p style={{ color: 'white', margin: 0 }}>🏷️ カード名：{cardName}</p>
-            <img src={nameImage} alt="Card Name" style={{ width: '120px' }} />
+            <p style={{ color: 'white', margin: 0 }}>🏷️ カード名: {nameText}</p>
+            <img src={nameImage} alt="Card Name" style={{ width: '160px' }} />
           </div>
         )}
         {idImage && (
           <div>
-            <p style={{ color: 'white', margin: 0 }}>🔢 型番：{cardId}</p>
-            <img src={idImage} alt="Card ID" style={{ width: '120px' }} />
+            <p style={{ color: 'white', margin: 0 }}>🔢 型番: {idText}</p>
+            <img src={idImage} alt="Card ID" style={{ width: '160px' }} />
           </div>
         )}
       </div>
