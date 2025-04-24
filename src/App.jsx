@@ -41,7 +41,38 @@ function App() {
     setCameraOn(prev => !prev);
   };
 
-  const captureToCanvas = () => {
+  // ⬇️ グレースケール処理関数（補正）
+  const preprocessImage = (image) => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+
+    const img = new Image();
+    img.src = image;
+
+    return new Promise((resolve) => {
+      img.onload = () => {
+        canvas.width = img.width;
+        canvas.height = img.height;
+
+        ctx.drawImage(img, 0, 0);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageData.data;
+
+        for (let i = 0; i < data.length; i += 4) {
+          const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
+          data[i] = data[i + 1] = data[i + 2] = avg; // グレースケール化
+        }
+
+        ctx.putImageData(imageData, 0, 0);
+
+        const preprocessed = canvas.toDataURL();
+        resolve(preprocessed);
+      };
+    });
+  };
+
+  // ⬇️ 撮影＋補正処理
+  const captureToCanvas = async () => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
 
@@ -50,7 +81,6 @@ function App() {
       const videoWidth = video.videoWidth;
       const videoHeight = video.videoHeight;
 
-      // 撮影範囲（ポケカ枠：240x336）を中央から切り出す
       const captureWidth = 240;
       const captureHeight = 336;
       const sx = (videoWidth - captureWidth) / 2;
@@ -61,7 +91,9 @@ function App() {
 
       ctx.drawImage(video, sx, sy, captureWidth, captureHeight, 0, 0, captureWidth, captureHeight);
       const dataUrl = canvas.toDataURL('image/png');
-      setCapturedImage(dataUrl);
+
+      const preprocessed = await preprocessImage(dataUrl); // ←補正後画像を保存
+      setCapturedImage(preprocessed);
     }
   };
 
@@ -152,4 +184,3 @@ function App() {
 }
 
 export default App;
-
