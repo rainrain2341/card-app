@@ -3,7 +3,9 @@ import { useEffect, useRef, useState } from 'react';
 function App() {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
+  const canvasRef = useRef(null);
   const [cameraOn, setCameraOn] = useState(true);
+  const [capturedImage, setCapturedImage] = useState(null); // プレビュー画像用
 
   useEffect(() => {
     if (cameraOn) {
@@ -39,34 +41,28 @@ function App() {
     setCameraOn(prev => !prev);
   };
 
-  // 撮影処理（ガイド枠サイズ240x336を中央から切り出す）
   const captureToCanvas = () => {
     const video = videoRef.current;
-    if (!video) return;
+    const canvas = canvasRef.current;
 
-    const canvas = document.createElement('canvas');
-    const guideWidth = 240;
-    const guideHeight = 336;
+    if (video && canvas) {
+      const ctx = canvas.getContext('2d');
+      const videoWidth = video.videoWidth;
+      const videoHeight = video.videoHeight;
 
-    const videoWidth = video.videoWidth;
-    const videoHeight = video.videoHeight;
+      // 撮影範囲（ポケカ枠：240x336）を中央から切り出す
+      const captureWidth = 240;
+      const captureHeight = 336;
+      const sx = (videoWidth - captureWidth) / 2;
+      const sy = (videoHeight - captureHeight) / 2;
 
-    const sx = (videoWidth - guideWidth) / 2;
-    const sy = (videoHeight - guideHeight) / 2;
+      canvas.width = captureWidth;
+      canvas.height = captureHeight;
 
-    canvas.width = guideWidth;
-    canvas.height = guideHeight;
-
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(
-      video,
-      sx, sy, guideWidth, guideHeight,
-      0, 0, guideWidth, guideHeight
-    );
-
-    const imageData = canvas.toDataURL('image/png');
-    console.log("📸 撮影完了:", imageData);
-    // OCR や AI に imageData を渡す処理はここに追加
+      ctx.drawImage(video, sx, sy, captureWidth, captureHeight, 0, 0, captureWidth, captureHeight);
+      const dataUrl = canvas.toDataURL('image/png');
+      setCapturedImage(dataUrl);
+    }
   };
 
   return (
@@ -88,7 +84,7 @@ function App() {
         }}
       />
 
-      {/* ポケモンカード型ガイド枠 */}
+      {/* ガイド枠 */}
       <div style={{
         position: 'absolute',
         top: '50%',
@@ -102,49 +98,58 @@ function App() {
         boxShadow: '0 0 10px rgba(255,0,0,0.5)'
       }}></div>
 
-      {/* カメラON/OFFボタン */}
-      <button
-        onClick={toggleCamera}
-        style={{
-          position: 'absolute',
-          bottom: '20px',
-          left: '50%',
-          transform: 'translateX(-50%)',
+      {/* ボタン */}
+      <div style={{
+        position: 'absolute',
+        bottom: '20px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        display: 'flex',
+        gap: '10px',
+        zIndex: 10
+      }}>
+        <button onClick={toggleCamera} style={{
           padding: '10px 20px',
           fontSize: '16px',
           borderRadius: '8px',
           border: 'none',
           backgroundColor: cameraOn ? 'red' : 'green',
           color: 'white',
-          cursor: 'pointer',
-          zIndex: 10
-        }}
-      >
-        {cameraOn ? 'カメラOFF' : 'カメラON'}
-      </button>
-
-      {/* 撮影ボタン */}
-      <button
-        onClick={captureToCanvas}
-        style={{
-          position: 'absolute',
-          bottom: '70px',
-          left: '50%',
-          transform: 'translateX(-50%)',
+          cursor: 'pointer'
+        }}>
+          {cameraOn ? 'カメラOFF' : 'カメラON'}
+        </button>
+        <button onClick={captureToCanvas} style={{
           padding: '10px 20px',
           fontSize: '16px',
           borderRadius: '8px',
           border: 'none',
-          backgroundColor: '#007bff',
+          backgroundColor: 'blue',
           color: 'white',
-          cursor: 'pointer',
-          zIndex: 10
-        }}
-      >
-        撮影して識別
-      </button>
+          cursor: 'pointer'
+        }}>
+          撮影
+        </button>
+      </div>
+
+      {/* Canvas (非表示) */}
+      <canvas ref={canvasRef} style={{ display: 'none' }} />
+
+      {/* 撮影画像プレビュー */}
+      {capturedImage && (
+        <div style={{
+          position: 'absolute',
+          top: '10px',
+          right: '10px',
+          zIndex: 10,
+          border: '2px solid white'
+        }}>
+          <img src={capturedImage} alt="preview" style={{ width: '120px', height: '168px' }} />
+        </div>
+      )}
     </div>
   );
 }
 
 export default App;
+
